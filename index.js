@@ -75,48 +75,25 @@ client.once(Events.ClientReady, async () => {
     ];
 
     try {
-        // 글로벌 명령어 등록 (최대 1시간 소요될 수 있음)
+        // 글로벌 명령어 등록 (이제 완전히 반영되었으므로 이것만 사용)
         await client.application.commands.set(commands);
         
-        // 즉각적인 적용을 위해 현재 봇이 들어가 있는 모든 서버(길드)에 개별 등록
+        // 중복 방지를 위해 서버(길드)에 개별 등록했던 명령어는 싹 지움
         for (const [id, guild] of client.guilds.cache) {
-            await guild.commands.set(commands);
+            await guild.commands.set([]);
         }
         
-        console.log('✅ 슬래시 명령어 등록 완료 (/입장, /퇴장 사용 가능)');
+        console.log('✅ 슬래시 명령어 등록 완료 (/입장, /퇴장, /채팅삭제 사용 가능)');
     } catch (error) {
         console.error('명령어 등록 오류:', error);
     }
 });
 
-// 봇이 새로운 서버에 초대되었을 때도 명령어 즉시 등록
+// 봇이 새로운 서버에 초대되었을 때
 client.on(Events.GuildCreate, async guild => {
-    const commands = [
-        {
-            name: '입장',
-            description: '현재 접속 중인 음성 채널에 봇을 부르고, 이 채팅 채널의 메시지를 읽기 시작합니다.',
-        },
-        {
-            name: '퇴장',
-            description: '봇을 음성 채널에서 내보내고 메시지 읽기를 중지합니다.',
-        },
-        {
-            name: '채팅삭제',
-            description: '원하는 개수만큼 최근 채팅을 한 번에 삭제합니다.',
-            options: [
-                {
-                    name: '개수',
-                    description: '삭제할 메시지 개수 (1~100)',
-                    type: 4, // ApplicationCommandOptionType.Integer
-                    required: true,
-                    min_value: 1,
-                    max_value: 100
-                }
-            ]
-        }
-    ];
+    // 글로벌 명령어가 알아서 적용되므로 개별 등록은 더 이상 하지 않음
     try {
-        await guild.commands.set(commands);
+        await guild.commands.set([]);
     } catch (console) {}
 });
 
