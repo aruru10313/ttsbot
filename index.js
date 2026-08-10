@@ -105,19 +105,23 @@ async function playNext(guildId) {
     }
 
     state.isPlaying = true;
-    const text = state.queue.shift();
-    const tempFilePath = path.join(tempDir, `${guildId}_${Date.now()}.mp3`);
+    const item = state.queue.shift();
 
     try {
-        await tts.ttsPromise(text, tempFilePath);
-        const resource = createAudioResource(tempFilePath);
+        // 백그라운드에서 미리 생성된(또는 생성 중인) TTS 오디오 파일 경로를 가져옵니다.
+        const filePath = await item.ttsTask;
+        if (!filePath) {
+            // 변환 실패 시 다음 큐로 넘어감
+            return playNext(guildId);
+        }
+
+        const resource = createAudioResource(filePath);
         state.player.play(resource);
         
         // 삭제를 위해 현재 재생중인 파일 경로 저장
-        state.currentFile = tempFilePath;
+        state.currentFile = filePath;
     } catch (error) {
-        console.error('TTS 변환 오류:', error);
-        // 오류 발생 시 다음 큐로 바로 넘김
+        console.error('오디오 재생 오류:', error);
         playNext(guildId);
     }
 }
@@ -312,7 +316,17 @@ client.on(Events.MessageCreate, async (message) => {
         // 초성 및 은어 전처리
         text = processText(text);
 
-        state.queue.push(text);
+        // 메시지가 들어오자마자 백그라운드에서 TTS 변환을 시작하여 지연시간을 대폭 줄입니다. (Pre-generation)
+        const tempFilePath = path.join(tempDir, `${message.guild.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`);
+        
+        const ttsTask = tts.ttsPromise(text, tempFilePath)
+            .then(() => tempFilePath)
+            .catch(error => {
+                console.error('TTS 변환 오류:', error);
+                return null; // 오류 발생 시 null 반환하여 playNext에서 스킵되도록 처리
+            });
+
+        state.queue.push({ text, ttsTask });
         if (!state.isPlaying) {
             playNext(message.guild.id);
         }
